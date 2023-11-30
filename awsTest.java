@@ -8,9 +8,11 @@ package aws;
  *
  */
 import java.io.BufferedReader;
+import java.util.Collections;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.io.InputStream;
 import java.util.Scanner;
 import java.time.LocalDate;
 import java.util.List;
@@ -45,13 +47,20 @@ import com.amazonaws.services.ec2.model.DescribeImagesRequest;
 import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.model.*;
 
 public class awsTest {
 
     static AmazonEC2      ec2;
     static ProfileCredentialsProvider credentialsProvider;
+    static String masterId = "i-0560c4b836b88b949";
+    static AWSSimpleSystemsManagement ssm;
 
     private static void init() throws Exception {
+        ssm = AWSSimpleSystemsManagementClientBuilder.defaultClient();
+        ec2 = AmazonEC2ClientBuilder.defaultClient();
 
         credentialsProvider = new ProfileCredentialsProvider();
         try {
@@ -92,7 +101,6 @@ public class awsTest {
             System.out.println(" 11. condor_q status                             ");
             System.out.println("                                  99. quit                  ");
             System.out.println("------------------------------------------------------------");
-        System.out.print("Enter an integer: ");
 
             System.out.print("Enter an integer: ");
 
@@ -166,17 +174,11 @@ public class awsTest {
                     break;
 
                 case 10:
-                    System.out.print("ip address: ");
-                    if (id_string.hasNext()) {
-                        instance_id = id_string.nextLine();
-                    }
-                    if (!instance_id.isBlank()) {
-                        displayIPAddress(instance_id);
-                    }
+                    displayIPAddress(masterId);
                     break;
 
                 case 11:
-                    executeCondorQ();
+                    executeCommand(masterId, "condor_q");
                     break;
 
                 case 99:
@@ -190,6 +192,41 @@ public class awsTest {
         }
 
     }
+
+    public static void executeCommand(String instanceId, String command) {
+        System.out.println("Executing command on instance " + instanceId + ": " + command);
+
+        SendCommandRequest sendCommandRequest = new SendCommandRequest()
+                .withInstanceIds(instanceId)
+                .withDocumentName("AWS-RunShellScript")
+                .withParameters(Collections.singletonMap("commands", Collections.singletonList(command)));
+
+        SendCommandResult sendCommandResult = ssm.sendCommand(sendCommandRequest);
+        String commandId = sendCommandResult.getCommand().getCommandId();
+
+        GetCommandInvocationRequest getCommandInvocationRequest = new GetCommandInvocationRequest()
+                .withCommandId(commandId)
+                .withInstanceId(instanceId);
+
+        GetCommandInvocationResult commandInvocationResult = null;
+        boolean commandExecuted = false;
+        while (!commandExecuted) {
+            try {
+                Thread.sleep(5000);
+                commandInvocationResult = ssm.getCommandInvocation(getCommandInvocationRequest);
+                if (commandInvocationResult.getStatus().equals("Success")) {
+                    commandExecuted = true;
+                }
+            } catch (InterruptedException | AmazonServiceException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (commandInvocationResult != null) {
+            System.out.println("Command output: " + commandInvocationResult.getStandardOutputContent());
+        }
+    }
+
 
     public static void listInstances() {
 
@@ -425,24 +462,6 @@ public class awsTest {
                 System.out.printf("[Instance ID] %s, [IP Address] %s\n",
                         instance.getInstanceId(), instance.getPublicIpAddress());
             }
-        }
-    }
-
-    public static void executeCondorQ() {
-        String command = "condor_q";
-        
-        try {
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-
-            reader.close();
-        } catch (Exception e) {
-            System.out.println("condor_q exception!: " + e.getMessage());
         }
     }
 }
