@@ -8,6 +8,7 @@ package aws;
  *
  */
 import java.io.BufferedReader;
+import java.io.File;
 import java.util.Collections;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -50,6 +51,9 @@ import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.model.*;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 
 public class awsTest {
 
@@ -57,6 +61,7 @@ public class awsTest {
     static ProfileCredentialsProvider credentialsProvider;
     static String masterId = "i-0560c4b836b88b949";
     static AWSSimpleSystemsManagement ssm;
+    static String s3Storage = "elasticbeanstalk-ap-northeast-2-834078600268";
 
     private static void init() throws Exception {
         ssm = AWSSimpleSystemsManagementClientBuilder.defaultClient();
@@ -98,7 +103,8 @@ public class awsTest {
             System.out.println("  5. stop instance                6. create instance        ");
             System.out.println("  7. reboot instance              8. list images            ");
             System.out.println("  9. predict costs               10. display IP address     ");
-            System.out.println(" 11. condor_q status                             ");
+            System.out.println(" 11. condor_q status             12. upload file            ");
+            System.out.println(" 13. download file               14. delete file            ");
             System.out.println("                                  99. quit                  ");
             System.out.println("------------------------------------------------------------");
 
@@ -179,6 +185,34 @@ public class awsTest {
 
                 case 11:
                     executeCommand(masterId, "condor_q");
+                    break;
+                
+                case 12:
+                if (!s3Storage.isBlank()) {
+                    Scanner scanner = new Scanner(System.in);
+                    System.out.print("Enter the file name to upload: ");
+                    String fileName = scanner.nextLine();
+
+                    if (!fileName.isBlank()) {
+                        uploadFile(s3Storage, fileName);
+                    } else {
+                        System.out.println("File name cannot be blank.");
+                    }
+                }
+                break;
+
+                case 13:
+                    Scanner downloadScanner = new Scanner(System.in);
+                    System.out.print("Enter the file name to download: ");
+                    String downloadFileName = downloadScanner.nextLine();
+                    downloadFile(s3Storage, downloadFileName);
+                    break;
+
+                case 14:
+                    Scanner deleteScanner = new Scanner(System.in);
+                    System.out.print("Enter the file name to delete: ");
+                    String deleteFileName = deleteScanner.nextLine();
+                    deleteFile(s3Storage, deleteFileName);
                     break;
 
                 case 99:
@@ -421,12 +455,12 @@ public class awsTest {
         LocalDate startDate;
         LocalDate endDate;
 
-        if (today.getDayOfMonth() == 1) {
-            startDate = today.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth());
-            endDate = today.minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
-        } else {
+        if (today.getMonthValue() == 1) { 
             startDate = today.with(TemporalAdjusters.firstDayOfMonth());
             endDate = today.minusDays(1);
+        } else {
+            startDate = today.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth());
+            endDate = today.minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
         }
 
         AWSCostExplorerClientBuilder builder = AWSCostExplorerClientBuilder.standard();
@@ -448,7 +482,7 @@ public class awsTest {
         });
 
         awsCostExplorerClient.shutdown();
-    }
+    }  
 
     public static void displayIPAddress(String instance_id) {
         System.out.println("Displaying IP Address....");
@@ -462,6 +496,72 @@ public class awsTest {
                 System.out.printf("[Instance ID] %s, [IP Address] %s\n",
                         instance.getInstanceId(), instance.getPublicIpAddress());
             }
+        }
+    }
+
+    public static void uploadFile(String bucketName, String fileName) {
+        System.out.println("Uploading file to EC2...");
+
+        AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+
+        try {
+            String currentDirectory = System.getProperty("user.dir");
+            File file = new File(currentDirectory, fileName);
+
+            if (file.exists()) {
+                s3Client.putObject(bucketName, fileName, file);
+
+                System.out.printf("File '%s' uploaded to bucket '%s' successfully.\n", fileName, bucketName);
+            } else {
+                System.out.println("File doesn't exist. Please provide a valid file name.");
+            }
+        } catch (Exception e) {
+            System.err.println("An error occurred while uploading the file.");
+            System.err.println(e.getMessage());
+        }
+    }
+
+    public static void downloadFile(String bucketName, String fileName) {
+        System.out.println("Downloading file from EC2...");
+
+        AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+
+        try {
+            String currentDirectory = System.getProperty("user.dir");
+            File file = new File(currentDirectory, fileName);
+
+            if (!file.exists()) {
+                s3Client.getObject(new GetObjectRequest(bucketName, fileName), file);
+
+                System.out.printf("File '%s' downloaded from bucket '%s' successfully.\n", fileName, bucketName);
+            } else {
+                System.out.println("File already exists in the current directory.");
+            }
+        } catch (Exception e) {
+            System.err.println("An error occurred while downloading the file.");
+            System.err.println(e.getMessage());
+        }
+    }
+
+    public static void deleteFile(String bucketName, String fileName) {
+        System.out.println("Deleting file from EC2...");
+
+        AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+
+        try {
+            String currentDirectory = System.getProperty("user.dir");
+            File file = new File(currentDirectory, fileName);
+
+            if (file.exists()) {
+                s3Client.deleteObject(bucketName, fileName);
+
+                System.out.printf("File '%s' deleted from bucket '%s' successfully.\n", fileName, bucketName);
+            } else {
+                System.out.println("File doesn't exist in the current directory.");
+            }
+        } catch (Exception e) {
+            System.err.println("An error occurred while deleting the file.");
+            System.err.println(e.getMessage());
         }
     }
 }
