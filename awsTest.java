@@ -102,10 +102,11 @@ public class awsTest {
             System.out.println("  3. start instance               4. available regions      ");
             System.out.println("  5. stop instance                6. create instance        ");
             System.out.println("  7. reboot instance              8. list images            ");
-            System.out.println("  9. predict costs               10. display IP address     ");
+            System.out.println("  9. show costs                  10. display IP address     ");
             System.out.println(" 11. condor_q status             12. upload file            ");
             System.out.println(" 13. download file               14. delete file            ");
-            System.out.println("                                  99. quit                  ");
+            System.out.println(" 15. start all instances         16. stop all instances     ");
+            System.out.println("                                 99. quit                   ");
             System.out.println("------------------------------------------------------------");
 
             System.out.print("Enter an integer: ");
@@ -175,8 +176,8 @@ public class awsTest {
                     break;
 
                 case 9:
-                    System.out.println("Costs until yesterday :");
-                    predictCosts();
+                    System.out.println("Costs last month :");
+                    showCosts();
                     break;
 
                 case 10:
@@ -213,6 +214,14 @@ public class awsTest {
                     System.out.print("Enter the file name to delete: ");
                     String deleteFileName = deleteScanner.nextLine();
                     deleteFile(s3Storage, deleteFileName);
+                    break;
+
+                case 15:
+                    startAllInstances();
+                    break;
+
+                case 16:
+                    stopAllInstances();
                     break;
 
                 case 99:
@@ -448,7 +457,7 @@ public class awsTest {
 
     }
 
-    public static void predictCosts() {
+    public static void showCosts() {
         AWSCostExplorer awsCostExplorerClient;
 
         LocalDate today = LocalDate.now();
@@ -562,6 +571,30 @@ public class awsTest {
         } catch (Exception e) {
             System.err.println("An error occurred while deleting the file.");
             System.err.println(e.getMessage());
+        }
+    }
+
+    public static void startAllInstances() {
+        System.out.println("Starting all instances....");
+        DescribeInstancesRequest request = new DescribeInstancesRequest();
+        DescribeInstancesResult response = ec2.describeInstances(request);
+
+        for (Reservation reservation : response.getReservations()) {
+            for (Instance instance : reservation.getInstances()) {
+                startInstance(instance.getInstanceId());
+            }
+        }
+    }
+
+    public static void stopAllInstances() {
+        System.out.println("Stopping all instances....");
+        DescribeInstancesRequest request = new DescribeInstancesRequest();
+        DescribeInstancesResult response = ec2.describeInstances(request);
+
+        for (Reservation reservation : response.getReservations()) {
+            for (Instance instance : reservation.getInstances()) {
+                stopInstance(instance.getInstanceId());
+            }
         }
     }
 }
