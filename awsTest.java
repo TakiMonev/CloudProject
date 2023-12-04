@@ -103,9 +103,10 @@ public class awsTest {
             System.out.println("  5. stop instance                6. create instance        ");
             System.out.println("  7. reboot instance              8. list images            ");
             System.out.println("  9. show costs                  10. display IP address     ");
-            System.out.println(" 11. condor_q status             12. upload file            ");
-            System.out.println(" 13. download file               14. delete file            ");
-            System.out.println(" 15. start all instances         16. stop all instances     ");
+            System.out.println(" 11. condor_status               12. condor_q               ");
+            System.out.println(" 13. upload file                 14. download file          ");
+            System.out.println(" 15. delete file                 16. start all instances    ");
+            System.out.println(" 17. stop all instances                                     ");
             System.out.println("                                 99. quit                   ");
             System.out.println("------------------------------------------------------------");
 
@@ -176,7 +177,7 @@ public class awsTest {
                     break;
 
                 case 9:
-                    System.out.println("Costs last month :");
+                    System.out.println("Costs until yesterday :");
                     showCosts();
                     break;
 
@@ -185,10 +186,14 @@ public class awsTest {
                     break;
 
                 case 11:
+                    executeCommand(masterId, "condor_status");
+                    break;
+
+                case 12:
                     executeCommand(masterId, "condor_q");
                     break;
                 
-                case 12:
+                case 13:
                 if (!s3Storage.isBlank()) {
                     Scanner scanner = new Scanner(System.in);
                     System.out.print("Enter the file name to upload: ");
@@ -202,25 +207,25 @@ public class awsTest {
                 }
                 break;
 
-                case 13:
+                case 14:
                     Scanner downloadScanner = new Scanner(System.in);
                     System.out.print("Enter the file name to download: ");
                     String downloadFileName = downloadScanner.nextLine();
                     downloadFile(s3Storage, downloadFileName);
                     break;
 
-                case 14:
+                case 15:
                     Scanner deleteScanner = new Scanner(System.in);
                     System.out.print("Enter the file name to delete: ");
                     String deleteFileName = deleteScanner.nextLine();
                     deleteFile(s3Storage, deleteFileName);
                     break;
 
-                case 15:
+                case 16:
                     startAllInstances();
                     break;
 
-                case 16:
+                case 17:
                     stopAllInstances();
                     break;
 
